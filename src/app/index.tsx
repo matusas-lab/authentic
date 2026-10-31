@@ -1,20 +1,27 @@
 // src/app/index.tsx
-import React, { useEffect } from 'react';
-import { StyleSheet, TouchableOpacity, View, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { Memo, observer } from '@legendapp/state/react';
+import { persistSmsStatus, smsStore$, trackIncomingSms } from '@/store/smsStore';
 import { when } from '@legendapp/state';
+import { Memo, observer } from '@legendapp/state/react';
 import {
   requestSmsPermissionAsync,
   startSmsListenerServiceAsync,
   useSmsListener,
 } from 'expo-sms-listener';
-import { smsStore$, trackIncomingSms, persistSmsStatus } from '@/store/smsStore';
+import { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import SmsReaderModule from "../../modules/sms-reader/src/SmsReaderModule";
 
 export default observer(function HomeScreen() {
+  const [messages, setMessages] = useState([]);
+  const [parsedTransactions, setParsedTransactions] = useState(
+    [],
+  );
+  // console.log("Banks Json: ", BANKS);
+
   // 1. Listen to incoming SMS while app is in foreground / active
   useSmsListener((msg) => {
     console.log('📩 [Foreground] SMS received:', msg.originatingAddress, msg.body);
@@ -24,6 +31,9 @@ export default observer(function HomeScreen() {
   // 2. Hydrate local storage & start Android foreground service
   useEffect(() => {
     (async () => {
+      const rawHistorical = await SmsReaderModule.readHistoricalSms();
+      console.log('rwa historical sms', rawHistorical);
+
       // Wait for AsyncStorage to load saved SMS
       await when(persistSmsStatus.state.isLoadedLocal);
       console.log('✅ SMS Store hydrated successfully!');
