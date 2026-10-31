@@ -1,98 +1,147 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+// src/app/index.tsx
+import React, { useEffect } from 'react';
+import { StyleSheet, TouchableOpacity, View, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
+import { Memo, observer } from '@legendapp/state/react';
+import { when } from '@legendapp/state';
+import {
+  requestSmsPermissionAsync,
+  startSmsListenerServiceAsync,
+  useSmsListener,
+} from 'expo-sms-listener';
+import { smsStore$, trackIncomingSms, persistSmsStatus } from '@/store/smsStore';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+export default observer(function HomeScreen() {
+  // 1. Listen to incoming SMS while app is in foreground / active
+  useSmsListener((msg) => {
+    console.log('📩 [Foreground] SMS received:', msg.originatingAddress, msg.body);
+    trackIncomingSms(msg);
+  });
+
+  // 2. Hydrate local storage & start Android foreground service
+  useEffect(() => {
+    (async () => {
+      // Wait for AsyncStorage to load saved SMS
+      await when(persistSmsStatus.state.isLoadedLocal);
+      console.log('✅ SMS Store hydrated successfully!');
+
+      // Request runtime SMS permissions and start persistent foreground service
+      const { granted } = await requestSmsPermissionAsync();
+      if (granted) {
+        await startSmsListenerServiceAsync();
+        console.log('🚀 SMS Foreground Service started');
+      }
+    })();
+  }, []);
+
+  // Quick simulation helper to test state without needing another phone
+  const addSimulatedSms = () => {
+    const timestamp = Date.now();
+    trackIncomingSms({
+      originatingAddress: 'Telebirr',
+      body: `You received 4500 ETB at ${new Date(timestamp).toLocaleTimeString()}`,
+      timestamp,
+    });
+  };
+
+  const clearMessages = () => {
+    smsStore$.messages.set({});
+    console.log('🗑️ Cleared SMS messages');
+  };
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+    <SafeAreaView style={styles.container}>
+      <ThemedView style={styles.card}>
+        <ThemedText type="title">Incoming SMS Tracker</ThemedText>
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+        {/* Reactive Hydration Status */}
+        <Memo>
+          {() => {
+            const isLoaded = persistSmsStatus.state.isLoadedLocal.get();
+            return (
+              <ThemedText style={{ color: isLoaded ? '#4CAF50' : '#FF9800' }}>
+                Storage Hydrated: {isLoaded ? 'YES ✅' : 'NO ⏳'}
+              </ThemedText>
+            );
+          }}
+        </Memo>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
+        {/* Action Buttons */}
+        <View style={styles.buttonRow}>
+          <TouchableOpacity style={styles.btnPrimary} onPress={addSimulatedSms}>
+            <ThemedText style={styles.btnText}>+ Simulate SMS</ThemedText>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.btnDanger} onPress={clearMessages}>
+            <ThemedText style={styles.btnText}>Clear</ThemedText>
+          </TouchableOpacity>
+        </View>
+
+        {/* List of Incoming SMS */}
+        <ThemedText type="subtitle" style={{ marginTop: Spacing.three }}>
+          Tracked SMS:
         </ThemedText>
+        <ScrollView style={styles.list}>
+          <Memo>
+            {() => {
+              const messagesMap = smsStore$.messages.get();
+              const list = Object.values(messagesMap ?? {}).sort(
+                (a, b) => b.timestamp - a.timestamp
+              );
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+              if (list.length === 0) {
+                return (
+                  <ThemedText type="small" style={{ opacity: 0.6 }}>
+                    No SMS tracked yet. Send an SMS to this device or tap Simulate.
+                  </ThemedText>
+                );
+              }
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+              return (
+                <>
+                  {list.map((sms) => (
+                    <ThemedView key={sms.id} style={styles.item}>
+                      <View style={styles.itemHeader}>
+                        <ThemedText style={{ fontWeight: 'bold' }}>
+                          {sms.originatingAddress}
+                        </ThemedText>
+                        <ThemedText type="small" style={{ opacity: 0.6 }}>
+                          {new Date(sms.timestamp).toLocaleTimeString()}
+                        </ThemedText>
+                      </View>
+                      <ThemedText style={{ marginTop: 4 }}>{sms.body}</ThemedText>
+                    </ThemedView>
+                  ))}
+                </>
+              );
+            }}
+          </Memo>
+        </ScrollView>
+      </ThemedView>
+    </SafeAreaView>
   );
-}
+});
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
+  container: { flex: 1, padding: Spacing.four },
+  card: { flex: 1, gap: Spacing.three },
+  buttonRow: { flexDirection: 'row', gap: Spacing.three, marginTop: Spacing.two },
+  btnPrimary: { backgroundColor: '#007AFF', padding: 12, borderRadius: 8 },
+  btnDanger: { backgroundColor: '#FF3B30', padding: 12, borderRadius: 8 },
+  btnText: { color: '#FFF', fontWeight: 'bold' },
+  list: { flex: 1, marginTop: Spacing.two },
+  item: {
+    padding: 12,
+    marginVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  itemHeader: {
     flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
   },
 });
