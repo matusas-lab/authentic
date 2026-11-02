@@ -26,23 +26,23 @@ The implementation must prioritize the actual financial logic and edge cases alr
 
 # 1. Fixed technology stack
 
-| Layer | Technology |
-|---|---|
-| Mobile application | Expo SDK 57 |
-| Language | TypeScript |
-| State management | Legend-State v2 |
-| Local persistence | MMKV v4 |
-| MMKV native dependency | `react-native-nitro-modules` |
-| Backend | Supabase |
-| Authentication | Supabase Auth |
-| Owner authentication | Google OAuth |
-| Database | PostgreSQL |
-| Database types | Supabase-generated TypeScript types |
-| Realtime delivery | Supabase Realtime Broadcast |
-| SMS collection | Existing Kotlin SMS reader and Expo background listener |
-| SMS parsing | Existing bank SMS parser |
-| Remote persistence | Legend-State v2 Generic Remote Persistence |
-| Excel export | Expo-compatible XLSX generation and file sharing |
+| Layer                  | Technology                                              |
+| ---------------------- | ------------------------------------------------------- |
+| Mobile application     | Expo SDK 57                                             |
+| Language               | TypeScript                                              |
+| State management       | Legend-State v2                                         |
+| Local persistence      | MMKV v4                                                 |
+| MMKV native dependency | `react-native-nitro-modules`                            |
+| Backend                | Supabase                                                |
+| Authentication         | Supabase Auth                                           |
+| Owner authentication   | Google OAuth                                            |
+| Database               | PostgreSQL                                              |
+| Database types         | Supabase-generated TypeScript types                     |
+| Realtime delivery      | Supabase Realtime Broadcast                             |
+| SMS collection         | Existing Kotlin SMS reader and Expo background listener |
+| SMS parsing            | Existing bank SMS parser                                |
+| Remote persistence     | Legend-State v2 Generic Remote Persistence              |
+| Excel export           | Expo-compatible XLSX generation and file sharing        |
 
 Do not migrate to Legend-State v3.
 
@@ -175,33 +175,34 @@ Preserve Totals table names when the business meaning still matches.
 
 Use these names:
 
-| Existing Totals table | Authentic decision |
-|---|---|
-| `transactions` | Retain (using `type` for `'CREDIT'` and `'DEBIT'`) |
-| `accounts` | Retain instead of introducing `bank_accounts` |
-| `banks` | Retain |
-| `failed_parses` | Retain |
-| `categories` | Retain for business settings (income/expense flows, COGS, tax-deductible) |
-| `transaction_source_sms` | Retain as local-only storage |
-| `profiles` | Replace with business membership concepts |
-| `user_accounts` | Exclude unless an actual MVP requirement needs it |
-| `budgets` | Exclude |
-| `auto_category_rules` | Exclude |
-| `auto_category_prompt_dismissals` | Exclude |
-| `receiver_category_mappings` | Exclude |
-| `loan_debt_entries` | Exclude |
-| `loan_debt_repayments` | Exclude |
-| `reimbursement_allocations` | Exclude |
-| `sync_destinations` | Exclude |
-| `sync_rules` | Exclude |
-| `sync_outbox` | Do not duplicate Legend-State's local pending-change mechanism |
-| `sync_runtime_locks` | Exclude |
+| Existing Totals table             | Authentic decision                                                        |
+| --------------------------------- | ------------------------------------------------------------------------- |
+| `transactions`                    | Retain (using `type` for `'CREDIT'` and `'DEBIT'`)                        |
+| `accounts`                        | Retain instead of introducing `bank_accounts`                             |
+| `banks`                           | Retain                                                                    |
+| `failed_parses`                   | Retain                                                                    |
+| `categories`                      | Retain for business settings (income/expense flows, COGS, tax-deductible) |
+| `transaction_source_sms`          | Retain as local-only storage                                              |
+| `profiles`                        | Replace with business membership concepts                                 |
+| `user_accounts`                   | Exclude unless an actual MVP requirement needs it                         |
+| `budgets`                         | Exclude                                                                   |
+| `auto_category_rules`             | Exclude                                                                   |
+| `auto_category_prompt_dismissals` | Exclude                                                                   |
+| `receiver_category_mappings`      | Exclude                                                                   |
+| `loan_debt_entries`               | Exclude                                                                   |
+| `loan_debt_repayments`            | Exclude                                                                   |
+| `reimbursement_allocations`       | Exclude                                                                   |
+| `sync_destinations`               | Exclude                                                                   |
+| `sync_rules`                      | Exclude                                                                   |
+| `sync_outbox`                     | Do not duplicate Legend-State's local pending-change mechanism            |
+| `sync_runtime_locks`              | Exclude                                                                   |
 
 Introduce new tables only where Authentic has genuinely different business-domain requirements, such as businesses, branches, memberships, and devices.
 
 ### 2.4 Totals parity requirement
 
 Maintain a feature-level mapping between the existing Totals logic and Authentic:
+
 - Existing Totals implementation.
 - Existing edge cases.
 - Authentic equivalent.
@@ -231,24 +232,31 @@ Maintain a feature-level mapping between the existing Totals logic and Authentic
 **Objective:** Parse and persist both historical and incoming SMS messages locally before implementing remote synchronization. The application must work without an authenticated Supabase session and without internet access.
 
 ### 4.1 Shared processing pipeline
+
 **Raw SMS → Classification → Parsing → Normalization → Fingerprinting → Local persistence**
 
 ### 4.2 SMS classification
+
 Handle: OTP, Credit, Debit, Transfer, Payment, Balance notification, Bank alert, Fee/DRRF, Unrecognized. Only valid financial transaction messages create cards. Balance-only SMS updates local account state.
 
 ### 4.3 Transaction normalization
+
 Extract: Amount, Currency, Direction/Type, Bank, Account, Creditor/Receiver, Reference, Transaction time, SMS received time, Balance, Fees (VAT/DRRF/charges), Fingerprint.
 
 ### 4.4 Fingerprinting and deduplication
+
 Deterministic fingerprint generated consistently across historical import and real-time incoming SMS.
 
 ### 4.5 Historical SMS import
+
 Batch reader with progress tracking and resumption window.
 
 ### 4.6 Incoming SMS collection
+
 Headless background receiver persisting locally before requiring network.
 
 ### 4.7 Local state
+
 Legend-State v2 with MMKV v4 adapter (`ObservablePersistMMKVv4`).
 
 ---
@@ -258,13 +266,16 @@ Legend-State v2 with MMKV v4 adapter (`ObservablePersistMMKVv4`).
 **Objective:** Display locally persisted transactions before depending on Supabase.
 
 ### 5.1 Transaction cards
+
 Reusable transaction cards showing amount, credit/debit indicator, payer/receiver, bank, reference, time, and status.
 
 ### 5.2 Owner summary cards
+
 - **Total Lifetime Sales:** Sum of valid credit transactions captured since `tracking_started_at`.
 - **Total Lifetime Expenses:** Sum of valid debit transactions captured since `tracking_started_at`.
 
 ### 5.3 Owner dashboard & local filters
+
 Newest first, credit/debit filters, search by payer/receiver/amount/reference, date range filters, bank filters.
 
 ---
@@ -274,9 +285,11 @@ Newest first, credit/debit filters, search by payer/receiver/amount/reference, d
 **Objective:** Prove that Legend-State v2 Generic Remote Persistence synchronizes a locally persisted transaction to Supabase.
 
 ### 6.1 Vertical slice
+
 One transaction: Raw SMS → Parse → Normalize → Fingerprint → Persist locally in MMKV → Sync to Supabase via Legend-State Generic Remote Persistence.
 
 ### 6.2 Idempotency and offline retries
+
 Offline transaction creation, request timeout handling, retry on reconnect, idempotency via `source_fingerprint`.
 
 ---
@@ -286,12 +299,15 @@ Offline transaction creation, request timeout handling, retry on reconnect, idem
 **Objective:** Connect the synchronization flow to authenticated business owners.
 
 ### 7.1 Owner Google login
+
 Supabase Auth with Google OAuth.
 
 ### 7.2 Business onboarding
+
 Atomic creation of Business, Main Branch, Owner Membership, and `tracking_started_at`.
 
 ### 7.3 Multi-tenant RLS
+
 Strict row-level policies enforcing business boundaries. Cashiers cannot access owner account balances or raw SMS records.
 
 ---
@@ -354,4 +370,3 @@ Strict row-level policies enforcing business boundaries. Cashiers cannot access 
 16. Cashier sees daily sales summary only.
 17. Date and attribute search/filters.
 18. Excel report export.
-
