@@ -24,7 +24,7 @@
 import sms_patterns from "@/assets/sms_patterns.json";
 import * as Network from "expo-network";
 import { Platform } from "react-native";
-import { MMKVLoader } from "react-native-mmkv-storage";
+import { createMMKV, type MMKV } from "react-native-mmkv";
 import { SmsPattern, parseSmsPattern } from "../models/sms_pattern";
 
 // NOTE: Ensure your tsconfig.json has:
@@ -56,14 +56,20 @@ const MMKV_PATTERNS_KEY = "sms_patterns_cache";
  *
  * Builder chain: MMKVLoader → withInstanceID → initialize
  */
-const storage = Platform.OS === "web"
-  ? {
-    setArrayAsync: async () => { },
-    getArrayAsync: async () => null,
-  } as any
-  : new MMKVLoader()
-    .withInstanceID("sms-config-storage")
-    .initialize();
+let storage: MMKV | null = null;
+try {
+  if (Platform.OS !== "web") {
+    storage = createMMKV({ id: "sms-config-storage" });
+  }
+} catch (e) {}
+
+
+
+
+
+
+
+
 
 // ─── In-flight Guard ──────────────────────────────────────────────────────────
 
@@ -320,7 +326,9 @@ export function debugSms(smsText: string): void {
  * react-native-mmkv-storage stores arrays/objects natively, so no coercion needed.
  */
 export async function savePatterns(patterns: SmsPattern[]): Promise<void> {
-  await storage.setArrayAsync(MMKV_PATTERNS_KEY, patterns as unknown[]);
+  try {
+    storage?.set(MMKV_PATTERNS_KEY, JSON.stringify(patterns));
+  } catch {}
   // console.debug(`[SmsConfig] Saved ${patterns.length} patterns to MMKV`);
 }
 

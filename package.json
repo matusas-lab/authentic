@@ -14,6 +14,7 @@
     "expo-glass-effect": "~57.0.4",
     "expo-image": "~57.0.5",
     "expo-linking": "~57.0.13",
+    "expo-network": "~57.0.3",
     "expo-router": "~57.0.29",
     "expo-sms-listener": "^1.0.10",
     "expo-splash-screen": "~57.0.10",
