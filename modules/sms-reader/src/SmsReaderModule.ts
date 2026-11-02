@@ -3,7 +3,7 @@ import { NativeModule, requireNativeModule } from "expo";
 import { HistoricalSmsMessage } from "@/models/types";
 
 declare class SmsReaderModule extends NativeModule<{}> {
-  readHistoricalSms(
+  getInboxSms(
     limit?: number | null,
     sinceTimestamp?: number | null,
   ): Promise<HistoricalSmsMessage[]>;

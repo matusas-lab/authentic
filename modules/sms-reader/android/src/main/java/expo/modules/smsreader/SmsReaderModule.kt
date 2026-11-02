@@ -17,7 +17,7 @@ class SmsReaderModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("SmsReader")
  // Supports an optional limit and an optional filter for start timestamp (in ms)
-    AsyncFunction("readHistoricalSms") { limit: Int?, sinceTimestamp: Long? ->
+    AsyncFunction("getInboxSms") { limit: Int?, sinceTimestamp: Long? ->
         val context = appContext.reactContext ?: throw Exception("React context is unavailable")
         val contentResolver: ContentResolver = context.contentResolver
         // Use content://sms to capture all incoming messages

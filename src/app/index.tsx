@@ -1,49 +1,55 @@
-// src/app/index.tsx
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { persistSmsStatus, smsStore$, trackIncomingSms } from '@/store/smsStore';
-import { when } from '@legendapp/state';
-import { Memo, observer } from '@legendapp/state/react';
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { Spacing } from "@/constants/theme";
+import {
+  persistSmsStatus,
+  smsStore$,
+  trackHistoricalSms,
+  trackIncomingSms,
+} from "@/store/smsStore";
+import { when } from "@legendapp/state";
+import { Memo, observer } from "@legendapp/state/react";
 import {
   requestSmsPermissionAsync,
   startSmsListenerServiceAsync,
   useSmsListener,
-} from 'expo-sms-listener';
-import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+} from "expo-sms-listener";
+import { useEffect, useState } from "react";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import SmsReaderModule from "../../modules/sms-reader/src/SmsReaderModule";
 
 export default observer(function HomeScreen() {
   const [messages, setMessages] = useState([]);
-  const [parsedTransactions, setParsedTransactions] = useState(
-    [],
-  );
+  const [parsedTransactions, setParsedTransactions] = useState([]);
   // console.log("Banks Json: ", BANKS);
 
   // 1. Listen to incoming SMS while app is in foreground / active
   useSmsListener((msg) => {
-    console.log('📩 [Foreground] SMS received:', msg.originatingAddress, msg.body);
+    console.log(
+      "📩 [Foreground] SMS received:",
+      msg.originatingAddress,
+      msg.body,
+    );
     trackIncomingSms(msg);
   });
 
   // 2. Hydrate local storage & start Android foreground service
   useEffect(() => {
     (async () => {
-      const rawHistorical = await SmsReaderModule.readHistoricalSms();
-      console.log('rwa historical sms', rawHistorical);
-
       // Wait for AsyncStorage to load saved SMS
       await when(persistSmsStatus.state.isLoadedLocal);
-      console.log('✅ SMS Store hydrated successfully!');
+      console.log("✅ SMS Store hydrated successfully!");
 
       // Request runtime SMS permissions and start persistent foreground service
       const { granted } = await requestSmsPermissionAsync();
       if (granted) {
         await startSmsListenerServiceAsync();
-        console.log('🚀 SMS Foreground Service started');
+        console.log("🚀 SMS Foreground Service started");
       }
+      const rawHistorical = await SmsReaderModule.getInboxSms();
+      console.log("raw historical sms", rawHistorical);
+      trackHistoricalSms(rawHistorical);
     })();
   }, []);
 
@@ -51,7 +57,7 @@ export default observer(function HomeScreen() {
   const addSimulatedSms = () => {
     const timestamp = Date.now();
     trackIncomingSms({
-      originatingAddress: 'Telebirr',
+      originatingAddress: "Telebirr",
       body: `You received 4500 ETB at ${new Date(timestamp).toLocaleTimeString()}`,
       timestamp,
     });
@@ -59,21 +65,21 @@ export default observer(function HomeScreen() {
 
   const clearMessages = () => {
     smsStore$.messages.set({});
-    console.log('🗑️ Cleared SMS messages');
+    console.log("🗑️ Cleared SMS messages");
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <ThemedView style={styles.card}>
-        <ThemedText type="title">Incoming SMS Tracker</ThemedText>
+        {/* <ThemedText type="title">Incoming SMS Tracker</ThemedText> */}
 
         {/* Reactive Hydration Status */}
         <Memo>
           {() => {
             const isLoaded = persistSmsStatus.state.isLoadedLocal.get();
             return (
-              <ThemedText style={{ color: isLoaded ? '#4CAF50' : '#FF9800' }}>
-                Storage Hydrated: {isLoaded ? 'YES ✅' : 'NO ⏳'}
+              <ThemedText style={{ color: isLoaded ? "#4CAF50" : "#FF9800" }}>
+                Storage Hydrated: {isLoaded ? "YES ✅" : "NO ⏳"}
               </ThemedText>
             );
           }}
@@ -91,7 +97,7 @@ export default observer(function HomeScreen() {
         </View>
 
         {/* List of Incoming SMS */}
-        <ThemedText type="subtitle" style={{ marginTop: Spacing.three }}>
+        <ThemedText style={{ marginTop: Spacing.three }}>
           Tracked SMS:
         </ThemedText>
         <ScrollView style={styles.list}>
@@ -99,13 +105,14 @@ export default observer(function HomeScreen() {
             {() => {
               const messagesMap = smsStore$.messages.get();
               const list = Object.values(messagesMap ?? {}).sort(
-                (a, b) => b.timestamp - a.timestamp
+                (a, b) => b.timestamp - a.timestamp,
               );
 
               if (list.length === 0) {
                 return (
                   <ThemedText type="small" style={{ opacity: 0.6 }}>
-                    No SMS tracked yet. Send an SMS to this device or tap Simulate.
+                    No SMS tracked yet. Send an SMS to this device or tap
+                    Simulate.
                   </ThemedText>
                 );
               }
@@ -115,14 +122,16 @@ export default observer(function HomeScreen() {
                   {list.map((sms) => (
                     <ThemedView key={sms.id} style={styles.item}>
                       <View style={styles.itemHeader}>
-                        <ThemedText style={{ fontWeight: 'bold' }}>
+                        <ThemedText style={{ fontWeight: "bold" }}>
                           {sms.originatingAddress}
                         </ThemedText>
                         <ThemedText type="small" style={{ opacity: 0.6 }}>
                           {new Date(sms.timestamp).toLocaleTimeString()}
                         </ThemedText>
                       </View>
-                      <ThemedText style={{ marginTop: 4 }}>{sms.body}</ThemedText>
+                      <ThemedText style={{ marginTop: 4 }}>
+                        {sms.body}
+                      </ThemedText>
                     </ThemedView>
                   ))}
                 </>
@@ -136,22 +145,26 @@ export default observer(function HomeScreen() {
 });
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: Spacing.four },
-  card: { flex: 1, gap: Spacing.three },
-  buttonRow: { flexDirection: 'row', gap: Spacing.three, marginTop: Spacing.two },
-  btnPrimary: { backgroundColor: '#007AFF', padding: 12, borderRadius: 8 },
-  btnDanger: { backgroundColor: '#FF3B30', padding: 12, borderRadius: 8 },
-  btnText: { color: '#FFF', fontWeight: 'bold' },
+  container: { flex: 1, padding: Spacing.three },
+  card: { flex: 1, gap: Spacing.four, padding: Spacing.three },
+  buttonRow: {
+    flexDirection: "row",
+    gap: Spacing.three,
+    marginTop: Spacing.two,
+  },
+  btnPrimary: { backgroundColor: "#90abc7ff", padding: 12, borderRadius: 2 },
+  btnDanger: { backgroundColor: "#d86f69ff", padding: 12, borderRadius: 2 },
+  btnText: { color: "#FFF", fontWeight: "bold" },
   list: { flex: 1, marginTop: Spacing.two },
   item: {
     padding: 12,
     marginVertical: 4,
     borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: "rgba(255,255,255,0.08)",
   },
   itemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
 });
