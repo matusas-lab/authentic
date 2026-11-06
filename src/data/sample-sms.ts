@@ -1,4 +1,9 @@
-[
+export interface SampleSms {
+  bank: string;
+  rawSms: string;
+}
+
+export const SAMPLE_SMS: SampleSms[] = [
   {
     bank: "CBE",
     rawSms:

@@ -34,7 +34,7 @@ configureObservablePersistence({
     asyncStorage: {
       AsyncStorage,
     },
-  },
+  }
 });
 
 export interface Transaction {

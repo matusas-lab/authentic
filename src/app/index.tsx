@@ -17,8 +17,12 @@ import {
 import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import SmsReaderModule from "../../modules/sms-reader/src/SmsReaderModule";
-
+// import SmsReaderModule from "../../modules/sms-reader/src/SmsReaderModule";
+import { syncBankSmsRange } from "@/services/sms_service";
+import SmsReaderModule, {
+  SmsColumn,
+  SmsFilter,
+} from "../../modules/sms-reader";
 export default observer(function HomeScreen() {
   const [messages, setMessages] = useState([]);
   const [parsedTransactions, setParsedTransactions] = useState([]);
@@ -48,7 +52,23 @@ export default observer(function HomeScreen() {
         console.log("🚀 SMS Foreground Service started");
       }
       const rawHistorical = await SmsReaderModule.getInboxSms();
-      console.log("raw historical sms", rawHistorical);
+      // console.log("raw historical sms", rawHistorical);
+      const result = await syncBankSmsRange({
+        start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+        includeStart: true,
+        end: new Date(),
+        includeEnd: true,
+        getInboxMessages: async ({ fromMs, toMs }) => {
+          return await SmsReaderModule.getInboxSms({
+            filter: SmsFilter.where(SmsColumn.DATE)
+              .greaterThanOrEqualTo(fromMs)
+              .and(SmsColumn.DATE)
+              .lessThanOrEqualTo(toMs),
+          });
+        },
+      });
+      console.log("Sync Result:", result);
+
       trackHistoricalSms(rawHistorical);
     })();
   }, []);

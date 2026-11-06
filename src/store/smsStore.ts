@@ -57,9 +57,10 @@ export function trackIncomingSms(data: {
 
 export function trackHistoricalSms(inboxSms: InboxSmsMessages[]) {
   inboxSms.forEach((message) => {
-    // const id = generateSmsId(message.originatingAddress, message.timestamp);
-    console.log("inbox sms id: ", message.id);
-    const smsId = message.id;
+    const address = message.originatingAddress || message.address || "Unknown";
+    const timestamp = message.timestamp || message.date || Date.now();
+    const smsId = String(message.id ?? generateSmsId(address, timestamp));
+
     // O(1) existence check
     if (smsStore$.messages[smsId].peek()) {
       return;
@@ -68,12 +69,12 @@ export function trackHistoricalSms(inboxSms: InboxSmsMessages[]) {
     // Direct keyed set
     smsStore$.messages[smsId].set({
       id: smsId,
-      originatingAddress: message.originatingAddress,
-      body: message.body,
-      timestamp: message.timestamp,
+      originatingAddress: address,
+      body: message.body || "",
+      timestamp,
       // syncStatus: 'pending',
     });
   });
 
-  console.log("Historical SMS tracked:", smsStore$.messages.peek());
+  // console.log("Historical SMS tracked:", smsStore$.messages.peek());
 }
